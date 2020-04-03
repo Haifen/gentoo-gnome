@@ -1,0 +1,62 @@
+From cbc22858d30987c1fa4a53d111216d676bfe305f Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Jonas=20=C3=85dahl?= <jadahl@gmail.com>
+Date: Wed, 11 Sep 2019 11:49:47 +0200
+Subject: [PATCH 01/14] clutter/actor: Add semi-private API to check for
+ transitions
+
+Transitions are used for animating actors when e.g. going from/to
+fullscreen, and the like. We need to know such things when deciding
+whether to avoid compositing a window actor, so make add API visible to
+mutter that checks whether there are any transitions active.
+
+https://gitlab.gnome.org/GNOME/mutter/-/merge_requests/1154
+---
+ clutter/clutter/clutter-actor.c  | 17 +++++++++++++++++
+ clutter/clutter/clutter-mutter.h |  3 +++
+ 2 files changed, 20 insertions(+)
+
+diff --git a/clutter/clutter/clutter-actor.c b/clutter/clutter/clutter-actor.c
+index b82d847a4..c0f4e6983 100644
+--- a/clutter/clutter/clutter-actor.c
++++ b/clutter/clutter/clutter-actor.c
+@@ -19967,6 +19967,23 @@ clutter_actor_get_transition (ClutterActor *self,
+   return clos->transition;
+ }
+ 
++/**
++ * clutter_actor_has_transitions: (skip)
++ */
++gboolean
++clutter_actor_has_transitions (ClutterActor *self)
++{
++  const ClutterAnimationInfo *info;
++
++  g_return_val_if_fail (CLUTTER_IS_ACTOR (self), FALSE);
++
++  info = _clutter_actor_get_animation_info_or_defaults (self);
++  if (info->transitions == NULL)
++    return FALSE;
++
++  return g_hash_table_size (info->transitions) > 0;
++}
++
+ /**
+  * clutter_actor_save_easing_state:
+  * @self: a #ClutterActor
+diff --git a/clutter/clutter/clutter-mutter.h b/clutter/clutter/clutter-mutter.h
+index 2e3af31f1..e51ccba98 100644
+--- a/clutter/clutter/clutter-mutter.h
++++ b/clutter/clutter/clutter-mutter.h
+@@ -60,6 +60,9 @@ void clutter_stage_update_resource_scales (ClutterStage *stage);
+ CLUTTER_EXPORT
+ gboolean clutter_actor_has_damage (ClutterActor *actor);
+ 
++CLUTTER_EXPORT
++gboolean clutter_actor_has_transitions (ClutterActor *actor);
++
+ #undef __CLUTTER_H_INSIDE__
+ 
+ #endif /* __CLUTTER_MUTTER_H__ */
+-- 
+2.24.1
+

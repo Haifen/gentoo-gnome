@@ -1,0 +1,284 @@
+From 5d42c9a172bc2e1a8a690da1cbe5de00530e0539 Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Jonas=20=C3=85dahl?= <jadahl@gmail.com>
+Date: Thu, 12 Sep 2019 22:07:20 +0200
+Subject: [PATCH 03/14] compositor: Introduce MetaCompositorNative
+
+This MetaCompositor sub type is specific to the native backend,
+and derives from MetaCompositorServer. It contains functionality
+only relevant for when running on top of the native backend.
+
+https://gitlab.gnome.org/GNOME/mutter/-/merge_requests/1154
+---
+ src/compositor/meta-compositor-native.c     | 64 +++++++++++++++++++++
+ src/compositor/meta-compositor-native.h     | 32 +++++++++++
+ src/compositor/meta-compositor-server.c     |  5 --
+ src/compositor/meta-compositor-server.h     |  9 ++-
+ src/compositor/meta-surface-actor-wayland.c | 26 ++++++---
+ src/core/display.c                          | 13 ++++-
+ src/meson.build                             |  6 +-
+ 7 files changed, 135 insertions(+), 20 deletions(-)
+ create mode 100644 src/compositor/meta-compositor-native.c
+ create mode 100644 src/compositor/meta-compositor-native.h
+
+diff --git a/src/compositor/meta-compositor-native.c b/src/compositor/meta-compositor-native.c
+new file mode 100644
+index 000000000..0e0101ced
+--- /dev/null
++++ b/src/compositor/meta-compositor-native.c
+@@ -0,0 +1,64 @@
++/*
++ * Copyright (C) 2019 Red Hat Inc.
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License as
++ * published by the Free Software Foundation; either version 2 of the
++ * License, or (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
++ * 02111-1307, USA.
++ *
++ */
++
++#include "config.h"
++
++#include "compositor/meta-compositor-native.h"
++
++#include "backends/meta-logical-monitor.h"
++#include "compositor/meta-surface-actor-wayland.h"
++
++struct _MetaCompositorNative
++{
++  MetaCompositorServer parent;
++};
++
++G_DEFINE_TYPE (MetaCompositorNative, meta_compositor_native,
++               META_TYPE_COMPOSITOR_SERVER)
++
++static void
++meta_compositor_native_pre_paint (MetaCompositor *compositor)
++{
++  MetaCompositorClass *parent_class;
++
++  parent_class = META_COMPOSITOR_CLASS (meta_compositor_native_parent_class);
++  parent_class->pre_paint (compositor);
++}
++
++MetaCompositorNative *
++meta_compositor_native_new (MetaDisplay *display)
++{
++  return g_object_new (META_TYPE_COMPOSITOR_NATIVE,
++                       "display", display,
++                       NULL);
++}
++
++static void
++meta_compositor_native_init (MetaCompositorNative *compositor_native)
++{
++}
++
++static void
++meta_compositor_native_class_init (MetaCompositorNativeClass *klass)
++{
++  MetaCompositorClass *compositor_class = META_COMPOSITOR_CLASS (klass);
++
++  compositor_class->pre_paint = meta_compositor_native_pre_paint;
++}
+diff --git a/src/compositor/meta-compositor-native.h b/src/compositor/meta-compositor-native.h
+new file mode 100644
+index 000000000..d276a5905
+--- /dev/null
++++ b/src/compositor/meta-compositor-native.h
+@@ -0,0 +1,32 @@
++/*
++ * Copyright (C) 2019 Red Hat Inc.
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License as
++ * published by the Free Software Foundation; either version 2 of the
++ * License, or (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful, but
++ * WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++ * General Public License for more details.
++ *
++ * You should have received a copy of the GNU General Public License
++ * along with this program; if not, write to the Free Software
++ * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
++ * 02111-1307, USA.
++ *
++ */
++
++#ifndef META_COMPOSITOR_NATIVE_H
++#define META_COMPOSITOR_NATIVE_H
++
++#include "compositor/meta-compositor-server.h"
++
++#define META_TYPE_COMPOSITOR_NATIVE (meta_compositor_native_get_type ())
++G_DECLARE_FINAL_TYPE (MetaCompositorNative, meta_compositor_native,
++                      META, COMPOSITOR_NATIVE, MetaCompositor)
++
++MetaCompositorNative * meta_compositor_native_new (MetaDisplay *display);
++
++#endif /* META_COMPOSITOR_NATIVE_H */
+diff --git a/src/compositor/meta-compositor-server.c b/src/compositor/meta-compositor-server.c
+index 928501f8a..0efee8b42 100644
+--- a/src/compositor/meta-compositor-server.c
++++ b/src/compositor/meta-compositor-server.c
+@@ -22,11 +22,6 @@
+ 
+ #include "compositor/meta-compositor-server.h"
+ 
+-struct _MetaCompositorServer
+-{
+-  MetaCompositor parent;
+-};
+-
+ G_DEFINE_TYPE (MetaCompositorServer, meta_compositor_server, META_TYPE_COMPOSITOR)
+ 
+ static void
+diff --git a/src/compositor/meta-compositor-server.h b/src/compositor/meta-compositor-server.h
+index 8bff05e7b..8b4a92748 100644
+--- a/src/compositor/meta-compositor-server.h
++++ b/src/compositor/meta-compositor-server.h
+@@ -24,8 +24,13 @@
+ #include "compositor/compositor-private.h"
+ 
+ #define META_TYPE_COMPOSITOR_SERVER (meta_compositor_server_get_type ())
+-G_DECLARE_FINAL_TYPE (MetaCompositorServer, meta_compositor_server,
+-                      META, COMPOSITOR_SERVER, MetaCompositor)
++G_DECLARE_DERIVABLE_TYPE (MetaCompositorServer, meta_compositor_server,
++                          META, COMPOSITOR_SERVER, MetaCompositor)
++
++struct _MetaCompositorServerClass
++{
++  MetaCompositorClass parent_class;
++};
+ 
+ MetaCompositorServer * meta_compositor_server_new (MetaDisplay *display);
+ 
+diff --git a/src/compositor/meta-surface-actor-wayland.c b/src/compositor/meta-surface-actor-wayland.c
+index dbdd49017..8b29b5251 100644
+--- a/src/compositor/meta-surface-actor-wayland.c
++++ b/src/compositor/meta-surface-actor-wayland.c
+@@ -79,6 +79,23 @@ meta_surface_actor_wayland_is_opaque (MetaSurfaceActor *actor)
+   return meta_shaped_texture_is_opaque (stex);
+ }
+ 
++static void
++queue_frame_callbacks (MetaSurfaceActorWayland *self)
++{
++  MetaWaylandCompositor *wayland_compositor;
++
++  if (!self->surface)
++    return;
++
++  if (meta_surface_actor_is_obscured (META_SURFACE_ACTOR (self)))
++    return;
++
++  wayland_compositor = self->surface->compositor;
++  wl_list_insert_list (&wayland_compositor->frame_callbacks,
++                       &self->frame_callback_list);
++  wl_list_init (&self->frame_callback_list);
++}
++
+ void
+ meta_surface_actor_wayland_add_frame_callbacks (MetaSurfaceActorWayland *self,
+                                                 struct wl_list *frame_callbacks)
+@@ -92,14 +109,7 @@ meta_surface_actor_wayland_paint (ClutterActor        *actor,
+ {
+   MetaSurfaceActorWayland *self = META_SURFACE_ACTOR_WAYLAND (actor);
+ 
+-  if (self->surface &&
+-      !meta_surface_actor_is_obscured (META_SURFACE_ACTOR (actor)))
+-    {
+-      MetaWaylandCompositor *compositor = self->surface->compositor;
+-
+-      wl_list_insert_list (&compositor->frame_callbacks, &self->frame_callback_list);
+-      wl_list_init (&self->frame_callback_list);
+-    }
++  queue_frame_callbacks (self);
+ 
+   CLUTTER_ACTOR_CLASS (meta_surface_actor_wayland_parent_class)->paint (actor,
+                                                                         paint_context);
+diff --git a/src/core/display.c b/src/core/display.c
+index 0917f4693..9df30779d 100644
+--- a/src/core/display.c
++++ b/src/core/display.c
+@@ -51,6 +51,7 @@
+ #include "backends/x11/meta-backend-x11.h"
+ #include "backends/x11/meta-event-x11.h"
+ #include "backends/x11/cm/meta-backend-x11-cm.h"
++#include "backends/x11/nested/meta-backend-x11-nested.h"
+ #include "clutter/x11/clutter-x11.h"
+ #include "compositor/compositor-private.h"
+ #include "compositor/meta-compositor-x11.h"
+@@ -81,6 +82,7 @@
+ #include "x11/xprops.h"
+ 
+ #ifdef HAVE_WAYLAND
++#include "compositor/meta-compositor-native.h"
+ #include "compositor/meta-compositor-server.h"
+ #include "wayland/meta-xwayland-private.h"
+ #include "wayland/meta-wayland-tablet-seat.h"
+@@ -572,11 +574,16 @@ static MetaCompositor *
+ create_compositor (MetaDisplay *display)
+ {
+ #ifdef HAVE_WAYLAND
+-  if (meta_is_wayland_compositor ())
++  MetaBackend *backend = meta_get_backend ();
++
++#ifdef HAVE_NATIVE_BACKEND
++  if (META_IS_BACKEND_NATIVE (backend))
++    return META_COMPOSITOR (meta_compositor_native_new (display));
++#endif
++  if (META_IS_BACKEND_X11_NESTED (backend))
+     return META_COMPOSITOR (meta_compositor_server_new (display));
+-  else
+ #endif
+-    return META_COMPOSITOR (meta_compositor_x11_new (display));
++  return META_COMPOSITOR (meta_compositor_x11_new (display));
+ }
+ 
+ static void
+diff --git a/src/meson.build b/src/meson.build
+index bb1b48b44..8072e7d40 100644
+--- a/src/meson.build
++++ b/src/meson.build
+@@ -291,6 +291,8 @@ mutter_sources = [
+   'compositor/meta-background-group.c',
+   'compositor/meta-background-image.c',
+   'compositor/meta-background-private.h',
++  'compositor/meta-compositor-server.c',
++  'compositor/meta-compositor-server.h',
+   'compositor/meta-compositor-x11.c',
+   'compositor/meta-compositor-x11.h',
+   'compositor/meta-cullable.c',
+@@ -476,8 +478,6 @@ if have_wayland
+     'compositor/meta-surface-actor-wayland.h',
+     'compositor/meta-window-actor-wayland.c',
+     'compositor/meta-window-actor-wayland.h',
+-    'compositor/meta-compositor-server.c',
+-    'compositor/meta-compositor-server.h',
+     'wayland/meta-cursor-sprite-wayland.c',
+     'wayland/meta-cursor-sprite-wayland.h',
+     'wayland/meta-pointer-confinement-wayland.c',
+@@ -675,6 +675,8 @@ if have_native_backend
+     'backends/native/meta-virtual-input-device-native.h',
+     'backends/native/meta-xkb-utils.c',
+     'backends/native/meta-xkb-utils.h',
++    'compositor/meta-compositor-native.c',
++    'compositor/meta-compositor-native.h',
+   ]
+ endif
+ 
+-- 
+2.24.1
+

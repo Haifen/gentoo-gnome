@@ -1,0 +1,88 @@
+From 40669ac3d7b44440446c4ee007f15fab0ba36f8e Mon Sep 17 00:00:00 2001
+From: Dor Askayo <dor.askayo@gmail.com>
+Date: Tue, 17 Mar 2020 21:39:49 +0200
+Subject: [PATCH 11/14] window: Allow indicating that variable refresh rate is
+ requested
+
+https://gitlab.gnome.org/GNOME/mutter/-/merge_requests/1154
+---
+ src/core/window-private.h |  5 +++++
+ src/core/window.c         | 24 ++++++++++++++++++++++++
+ src/meta/window.h         |  3 +++
+ 3 files changed, 32 insertions(+)
+
+diff --git a/src/core/window-private.h b/src/core/window-private.h
+index 07f316e90..b2479af6c 100644
+--- a/src/core/window-private.h
++++ b/src/core/window-private.h
+@@ -560,6 +560,8 @@ struct _MetaWindow
+   } placement;
+ 
+   guint unmanage_idle_id;
++
++  gboolean vrr_requested;
+ };
+ 
+ struct _MetaWindowClass
+@@ -816,6 +818,9 @@ void meta_window_set_transient_for        (MetaWindow *window,
+ void meta_window_set_opacity              (MetaWindow *window,
+                                            guint8      opacity);
+ 
++void meta_window_set_vrr_requested (MetaWindow *window,
++                                    gboolean    vrr_requested);
++
+ void meta_window_handle_enter (MetaWindow  *window,
+                                guint32      timestamp,
+                                guint        root_x,
+diff --git a/src/core/window.c b/src/core/window.c
+index 50f222ee5..715df7526 100644
+--- a/src/core/window.c
++++ b/src/core/window.c
+@@ -3057,6 +3057,30 @@ meta_window_requested_dont_bypass_compositor (MetaWindow *window)
+   return window->bypass_compositor == _NET_WM_BYPASS_COMPOSITOR_HINT_OFF;
+ }
+ 
++/**
++ * meta_window_set_vrr_requested:
++ * @window: a #MetaWindow
++ * @vrr_requested: whether the window requests variable refresh rate
++ */
++void
++meta_window_set_vrr_requested (MetaWindow *window,
++                               gboolean    vrr_requested)
++{
++  window->vrr_requested = vrr_requested;
++}
++
++/**
++ * meta_window_vrr_requested:
++ * @window: a #MetaWindow
++ *
++ * Return value: %TRUE if the window requested variable refresh rate
++ */
++gboolean
++meta_window_vrr_requested (MetaWindow *window)
++{
++  return window->vrr_requested;
++}
++
+ static void
+ meta_window_get_tile_fraction (MetaWindow   *window,
+                                MetaTileMode  tile_mode,
+diff --git a/src/meta/window.h b/src/meta/window.h
+index 4dfb9bc77..4d67bf6e3 100644
+--- a/src/meta/window.h
++++ b/src/meta/window.h
+@@ -292,6 +292,9 @@ gboolean          meta_window_requested_bypass_compositor (MetaWindow *window);
+ META_EXPORT
+ gboolean          meta_window_requested_dont_bypass_compositor (MetaWindow *window);
+ 
++META_EXPORT
++gboolean          meta_window_vrr_requested (MetaWindow *window);
++
+ META_EXPORT
+ gboolean meta_window_get_icon_geometry (MetaWindow    *window,
+                                         MetaRectangle *rect);
+-- 
+2.24.1
+

@@ -1,0 +1,56 @@
+From 1ca2d36e90e920561c5831eb7d09e3357a019c7a Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Jonas=20=C3=85dahl?= <jadahl@gmail.com>
+Date: Wed, 11 Sep 2019 22:04:00 +0200
+Subject: [PATCH 02/14] window: Add is_logical_monitor_sized() helper
+
+Useful to know whether a window covers a whole monitor or not.
+
+https://gitlab.gnome.org/GNOME/mutter/-/merge_requests/1154
+---
+ src/core/window.c | 15 +++++++++++++++
+ src/meta/window.h |  3 +++
+ 2 files changed, 18 insertions(+)
+
+diff --git a/src/core/window.c b/src/core/window.c
+index 3356fc790..50f222ee5 100644
+--- a/src/core/window.c
++++ b/src/core/window.c
+@@ -2971,6 +2971,21 @@ meta_window_is_screen_sized (MetaWindow *window)
+   return FALSE;
+ }
+ 
++gboolean
++meta_window_is_logical_monitor_sized (MetaWindow *window)
++{
++  MetaRectangle window_rect;
++  MetaRectangle logical_monitor_rect;
++
++  if (!window->monitor)
++    return FALSE;
++
++  meta_window_get_frame_rect (window, &window_rect);
++  logical_monitor_rect = meta_logical_monitor_get_layout (window->monitor);
++
++  return meta_rectangle_equal (&window_rect, &logical_monitor_rect);
++}
++
+ /**
+  * meta_window_is_monitor_sized:
+  * @window: a #MetaWindow
+diff --git a/src/meta/window.h b/src/meta/window.h
+index dda5acea1..4dfb9bc77 100644
+--- a/src/meta/window.h
++++ b/src/meta/window.h
+@@ -280,6 +280,9 @@ gboolean          meta_window_is_screen_sized (MetaWindow *window);
+ META_EXPORT
+ gboolean          meta_window_is_monitor_sized (MetaWindow *window);
+ 
++META_EXPORT
++gboolean          meta_window_is_logical_monitor_sized (MetaWindow *window);
++
+ META_EXPORT
+ gboolean          meta_window_is_on_primary_monitor (MetaWindow *window);
+ 
+-- 
+2.24.1
+
